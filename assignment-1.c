@@ -73,12 +73,110 @@ char *b64encode(char *username, char*userpass){
     return base64_encode(plainstring,strlen(plainstring));
 
 }
+int connectHTTP(int sockfd, char* url, char* recvBuff, char *b64){
+    char connectionString[1000];
+    char HTTPHEADER[100] = " HTTP/1.1\r\nHost: ";
+    char host[80]; //strcpy(host,url);
+    int n;
+
+    sprintf(connectionString,
+    "CONNECT %s:443 HTTP/1.1\r\n"
+    "Host: %s:443\r\n"
+    "Proxy-Authorization: basic %s\r\n"
+    "Proxy-Connection: Keep-Alive\r\n\r\n",
+    url,url,b64);
+
+    puts(connectionString);
+    
+    if(send(sockfd, connectionString, strlen(connectionString), 0) == -1){
+        perror("Error in connection: ");
+        return 5;
+    }
+    while((n = recv(sockfd, recvBuff, 1024 - 1, 0)) > 0)
+    {
+        recvBuff[n] = 0;
+        if (fputs(recvBuff, stdout) == EOF)
+        {
+            printf("\n Error: Fputs error\n");
+            return 6;
+        }
+        if(strstr(recvBuff,"\r\n\r\n") != NULL)break;
+    }
+
+    char response200[100] = "HTTP/1.1 200 Connection established";
+    if(strstr(recvBuff,response200) == NULL){
+        perror("Sed response: ");
+       // return 7;
+    }
+    if (n < 0)
+    {
+        printf("\n Read Error \n");
+        return 8;
+    }
+    return 0;
+}
+void SSLinit(){
+    SSL_load_error_strings();
+    ERR_load_BIO_strings();
+    OpenSSL_add_all_algorithms();
+}
+int secureGETHTTPS(SSL_CTX* ctx, SSL* ssl, BIO* bio,char* hostname, char*b64)
+{
+    BIO_get_ssl(bio, &ssl); /* session */
+    if(!ssl){
+        perror("Error");
+        return 1;
+    }
+    SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY); /* robustness */
+    char connectName[100];
+    sprintf(connectName,"%s:443",hostname);
+    puts(connectName);
+    //BIO_set_conn_hostname(bio, connectName); /* prepare to connect */
+    if (BIO_do_connect(bio) <= 0) {
+        perror("Error in connect: ");
+        return 2;
+    }
+      /* verify truststore, check cert */
+    if (!SSL_CTX_load_verify_locations(ctx,
+                                      "/etc/ssl/certs/ca-certificates.crt", 
+                                      "/etc/ssl/certs/")) 
+    perror("SSL_CTX_load_verify_locations error: ");
+
+    long verify_flag = SSL_get_verify_result(ssl);
+    if (verify_flag != X509_V_OK)
+    fprintf(stderr,
+            "##### Certificate verification error (%i) but continuing...\n",
+            (int) verify_flag);
+
+  /* now fetch the homepage as sample data */
+    char getString[100];
+    sprintf(getString, 
+    "GET / HTTP/1.1\r\n"
+    "Host: http://%s/\r\n"
+    "Proxy-Authorization: basic %s\r\n"
+    "Proxy-Connection: Keep-alive\r\n\r\n",
+    hostname,b64
+    );
+    puts(getString);
+    BIO_puts(bio, getString);
+
+  /* read HTTP response from server and print to stdout */
+    char response[100000];
+    memset(response, '\0', sizeof(response));
+    size_t buffSize = 100;
+    int n = 0;
+    while (n = BIO_read(bio, response, buffSize) >= 0) 
+    {
+        puts(response);
+        if(strstr(response,"</html>") != NULL)break;
+    }
+}
 int main(int argc, char **argv)
 {
     int sockfd = 0, n = 0;
     char recvBuff[1024];
     struct sockaddr_in serv_addr;
-
+    char base64encoded[100] =  "Y3NmMzAzOmNzZjMwMw=="; //add b64 code laters
     if (argc != 6)
     {
         printf("\n Usage: %s <ip of server> <port> <username> <password> <url>\n", argv[0]);
@@ -93,7 +191,7 @@ int main(int argc, char **argv)
     memset(&serv_addr, '0', sizeof(struct sockaddr_in));
 
     serv_addr.sin_family = AF_INET;
-    //inet_aton(argv[1], &serv_addr.sin_addr);
+
     serv_addr.sin_port = htons(atoi(argv[2]));
 
     if (inet_pton(AF_INET, argv[1], &serv_addr.sin_addr) <= 0)
@@ -106,74 +204,45 @@ int main(int argc, char **argv)
         printf("\n Error: Connect Failed\n");
         return 4;
     }
-
-    char connectionString[1000];
-    //strcat(connectionString, argv[5]);
-
-    char HTTPHEADER[100] = " HTTP/1.1\r\nHost: ";
-    
-    char host[80]; //strcpy(host,argv[5]);
-    //strcat(HTTPHEADER,host);
-
-    //char tailProxyAuth[100] = "\r\nProxy-Authorization: basic ";
-    char base64encoded[100] =  "Y3NmMzAzOmNzZjMwMw=="; //add b64 code later
-    
-    //strcat(connectionString,HTTPHEADER);
-    //strcat(connectionString,tailProxyAuth);
-    //strcat(connectionString,base64encoded);
-    //strcat(connectionString,"\r\nProxy-Connection: Keep-Alive\r\n\r\n");
-    
-    
-    sprintf(connectionString,
-    "CONNECT %s HTTP/1.1\r\n"
-    "Host: %s:443\r\n"
-    "Proxy-Authorization: basic %s\r\n\r\n",
-    argv[5],argv[5],base64encoded);
-
-    puts(connectionString);
-    if(send(sockfd, connectionString, strlen(connectionString), 0) == -1){
-        perror("Error in connection: ");
+    /*
+    if(connectHTTP(sockfd,argv[5],recvBuff,base64encoded))
+    {
+        printf("ConnectHTTP error");
         return 5;
     }
-    if((n = read(sockfd, recvBuff, sizeof(recvBuff) - 1)) > 0)
-    {
-        recvBuff[n] = 0;
-        if (fputs(recvBuff, stdout) == EOF)
-        {
-            printf("\n Error: Fputs error\n");
-            return 6;
-        }
+    */
+    /* set up openSSL*/
+
+    SSLinit();
+    
+    SSL *ssl;
+    char hostname[100];
+    sprintf(hostname,"%s",argv[5]);
+    
+    SSL_CTX  *ctx = SSL_CTX_new(TLS_client_method());
+    if(!ctx){
+        printf("Error in ctx");
+        return 6;
     }
-    char response200[100] = "HTTP/1.1 200 Connection established";
-    if(strncmp(recvBuff,response200,strlen(response200)) != 0){
-        perror("Sed response: ");
-        return 7;
+    BIO* bio = BIO_new_connect("182.75.45.22:13128");
+    if(!bio){
+        printf("Error in bio");
+        return 6;
     }
-    if (n < 0)
-    {
-        printf("\n Read Error \n");
-        return 8;
+    /*
+    BIO_get_ssl(bio, &ssl); 
+    if(!ssl){
+        perror("Error");
+        return 1;
     }
-    char getString[100];
-    sprintf(getString, 
-    "GET http://bits-pilani.ac.in/ HTTP/1.1\r\n"
-    "Host: bits-pilani.ac.in\r\n"
-    "Proxy-Authorization: basic %s\r\n"
-    "Proxy-Connection: Keep-alive\r\n\r\n",
-    base64encoded
-    );
-    puts(getString);
-    if(send(sockfd, getString,strlen(getString), 0) == -1){
-        perror("Error sending get request: ");
+    SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY); 
+    */
+    if (BIO_do_connect(bio) <= 0) {
+        perror("Error in connect: ");
+        return 2;
     }
-    if((n = read(sockfd, recvBuff, sizeof(recvBuff) - 1)) > 0)
-    {
-        recvBuff[n] = 0;
-        if (fputs(recvBuff, stdout) == EOF)
-        {
-            printf("\n Error: Fputs error\n");
-            return 6;
-        }
-    }
+
+    secureGETHTTPS(ctx,ssl,bio, hostname, base64encoded);
+
     return 0;
 }
