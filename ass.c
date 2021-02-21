@@ -86,15 +86,14 @@ int connectHTTP(char **argv, int* sockfd, char* url, char* recvBuff, char *b64, 
     "Proxy-Authorization: basic %s\r\n"
     "Proxy-Connection: Keep-Alive\r\n\r\n",
     url,url,b64);
-
-    //puts(connectionString);
-    
+    sock_init(sockfd, argv);
     if(send(*sockfd, connectionString, strlen(connectionString), 0) == -1){
         perror("Error in connection: ");
         return 5;
     }
-    char *Headerp = NULL;
     int flag = 0;
+    char *Headerp = NULL;
+    flag = 0;
 
     FILE *fp = fopen("./response.txt","w+");
     char resp[20000], *rp = resp;
@@ -138,7 +137,6 @@ int connectHTTP(char **argv, int* sockfd, char* url, char* recvBuff, char *b64, 
         urlp = '\0';
     }
     flag = 0;
-    printf("URL: %s\n", URL);
     fclose(fp);
 
 
@@ -151,8 +149,6 @@ int connectHTTP(char **argv, int* sockfd, char* url, char* recvBuff, char *b64, 
     "Proxy-Authorization: basic %s\r\n"
     "Proxy-Connection: Keep-Alive\r\n\r\n",
     url,URL,url,b64);
-
-    puts(connectionString);
     if(send(*sockfd, connectionString, strlen(connectionString), 0) == -1){
         perror("Error in connection: ");
         return 5;
@@ -163,7 +159,6 @@ int connectHTTP(char **argv, int* sockfd, char* url, char* recvBuff, char *b64, 
     memset(recvBuff,'\0',20000);
     while((n = recv(*sockfd, recvBuff, 20000, 0)) > 0)
     {
-        fwrite(recvBuff,n,1,stdout);
         if(flag == 1){
                     fwrite(recvBuff,n,1,fp);
         }
@@ -188,35 +183,57 @@ int main(int argc, char **argv)
     char base64encoded[100]; //add b64 code laters
     if (argc != 6)
     {
-        printf("\n Usage: %s <ip of server> <port> <username> <password> <url>\n", argv[0]);
+        printf("\n Usage: %s <ip of server> <port> <username> <password> <url> <response> <image>\n", argv[0]);
         return 1;
     }
     int olen,imageFlag;
     imageFlag = (strstr(argv[5],"jandarshan.cg.nic.in") != NULL);
-    printf("%d %s",imageFlag,argv[5]);
     b64encode(argv[3],argv[4], base64encoded, &olen);
 
     memset(recvBuff, '0', sizeof(recvBuff));
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    {
-        printf("socket error\n");
-        return 2;
-    }
-    memset(&serv_addr, '0', sizeof(struct sockaddr_in));
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(atoi(argv[2]));
-    if (inet_pton(AF_INET, argv[1], &serv_addr.sin_addr) <= 0)
-    {
-        printf("\n inet_pton error occured \n");
-        return 3;
-    }
-    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-    {
-        printf("\n Error: Connect Failed\n");
-        return 4;
-    }
+    sock_init(&sockfd, argv);
     
-    if(connectHTTP(argv,&sockfd,argv[5],recvBuff,base64encoded,imageFlag))
+
+    char connectionString[1000];
+    char host[1000]; //strcpy(host,url)
+
+    sprintf(connectionString,
+    "HEAD http://%s HTTP/1.1\r\n"
+    "Host: %s\r\n"
+    "Connection: Close\r\n"
+    "Proxy-Authorization: basic %s\r\n"
+    "Proxy-Connection: Keep-Alive\r\n\r\n",
+    argv[5],argv[5],base64encoded);
+    if(send(sockfd, connectionString, strlen(connectionString), 0) == -1){
+        perror("Error in connection: ");
+        return 5;
+    }
+    int urllen = 0;
+    char*p;
+    while((n = recv(sockfd, recvBuff, 20000, 0)) > 0)
+    {
+        p = strstr(recvBuff,"HTTP");
+        if(p != NULL){  
+            while(*p !=' ')p++;
+            if(*(++p) == '3'){
+                p = strstr(recvBuff,"http");
+                char*q = strstr(p, "\r\n");
+                urllen = q-p;
+            }
+            else{
+                p = NULL;
+            }
+        }
+    }
+    if(p != NULL){
+    strncpy(host,p,urllen);
+    host[urllen] = '\0';
+    }
+    else{
+        strcpy(host,argv[5]);
+    }
+
+    if(connectHTTP(argv,&sockfd,host,recvBuff,base64encoded,imageFlag))
     {
         printf("ConnectHTTP error");
         return 5;
