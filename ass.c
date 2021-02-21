@@ -12,6 +12,10 @@
 #include <openssl/err.h> /* errors */
 #include <openssl/ssl.h> /* core library */
 
+
+struct sockaddr_in serv_addr;
+int sockfd = 0;
+
 static const unsigned char base64_table[65] =
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 unsigned char * base64_encode(const char *src, char *dest, int len, int *olen)
@@ -49,7 +53,27 @@ char *b64encode(char *username, char*userpass, char *dest, int *olen){
     return base64_encode(plainstring,dest,strlen(plainstring),olen);
 
 }
-int connectHTTP(int sockfd, char* url, char* recvBuff, char *b64, int imageFlag ){
+int sock_init(int *sockfd, char **argv){
+    if ((*sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
+        printf("socket error\n");
+        return 2;
+    }
+    memset(&serv_addr, '0', sizeof(struct sockaddr_in));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(atoi(argv[2]));
+    if (inet_pton(AF_INET, argv[1], &serv_addr.sin_addr) <= 0)
+    {
+        printf("\n inet_pton error occured \n");
+        return 3;
+    }
+    if (connect(*sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+    {
+        printf("\n Error: Connect Failed\n");
+        return 4;
+    }
+}
+int connectHTTP(char **argv, int* sockfd, char* url, char* recvBuff, char *b64, int imageFlag ){
     char connectionString[1000];
     char HTTPHEADER[100] = " HTTP/1.1\r\nHost: ";
     char host[80]; //strcpy(host,url);
@@ -65,7 +89,7 @@ int connectHTTP(int sockfd, char* url, char* recvBuff, char *b64, int imageFlag 
 
     //puts(connectionString);
     
-    if(send(sockfd, connectionString, strlen(connectionString), 0) == -1){
+    if(send(*sockfd, connectionString, strlen(connectionString), 0) == -1){
         perror("Error in connection: ");
         return 5;
     }
@@ -74,7 +98,7 @@ int connectHTTP(int sockfd, char* url, char* recvBuff, char *b64, int imageFlag 
 
     FILE *fp = fopen("./response.txt","w+");
     char resp[20000], *rp = resp;
-    while((n = recv(sockfd, recvBuff, 20000, 0)) > 0)
+    while((n = recv(*sockfd, recvBuff, 20000, 0)) > 0)
     {
         recvBuff[n] = '\0';
         if (flag >= 1) 
@@ -90,8 +114,7 @@ int connectHTTP(int sockfd, char* url, char* recvBuff, char *b64, int imageFlag 
         }
         else if(strstr(recvBuff,"<!") != NULL){
             Headerp = strstr(recvBuff,"<!");
-            //
-            fwrite(recvBuff,n - (Headerp - recvBuff),1,fp);
+            fwrite(Headerp,n - (Headerp - recvBuff),1,fp);
             fflush(fp);
             flag = 1;
         }
@@ -118,6 +141,8 @@ int connectHTTP(int sockfd, char* url, char* recvBuff, char *b64, int imageFlag 
     printf("URL: %s\n", URL);
     fclose(fp);
 
+
+    sock_init(sockfd, argv);
     //GET
     sprintf(connectionString,
     "GET http://%s%s HTTP/1.1\r\n"
@@ -128,7 +153,7 @@ int connectHTTP(int sockfd, char* url, char* recvBuff, char *b64, int imageFlag 
     url,URL,url,b64);
 
     puts(connectionString);
-    if(send(sockfd, connectionString, strlen(connectionString), 0) == -1){
+    if(send(*sockfd, connectionString, strlen(connectionString), 0) == -1){
         perror("Error in connection: ");
         return 5;
     }
@@ -136,7 +161,7 @@ int connectHTTP(int sockfd, char* url, char* recvBuff, char *b64, int imageFlag 
     fp = fopen("./res.gif","w+");
     rp = recvBuff;
     memset(recvBuff,'\0',20000);
-    while((n = recv(sockfd, recvBuff, 20000, 0)) > 0)
+    while((n = recv(*sockfd, recvBuff, 20000, 0)) > 0)
     {
         fwrite(recvBuff,n,1,stdout);
         if(flag == 1){
@@ -157,9 +182,9 @@ int connectHTTP(int sockfd, char* url, char* recvBuff, char *b64, int imageFlag 
 
 int main(int argc, char **argv)
 {
-    int sockfd = 0, n = 0;
+    int n = 0;
     char recvBuff[20001];
-    struct sockaddr_in serv_addr;
+    
     char base64encoded[100]; //add b64 code laters
     if (argc != 6)
     {
@@ -178,11 +203,8 @@ int main(int argc, char **argv)
         return 2;
     }
     memset(&serv_addr, '0', sizeof(struct sockaddr_in));
-
     serv_addr.sin_family = AF_INET;
-
     serv_addr.sin_port = htons(atoi(argv[2]));
-
     if (inet_pton(AF_INET, argv[1], &serv_addr.sin_addr) <= 0)
     {
         printf("\n inet_pton error occured \n");
@@ -194,7 +216,7 @@ int main(int argc, char **argv)
         return 4;
     }
     
-    if(connectHTTP(sockfd,argv[5],recvBuff,base64encoded,imageFlag))
+    if(connectHTTP(argv,&sockfd,argv[5],recvBuff,base64encoded,imageFlag))
     {
         printf("ConnectHTTP error");
         return 5;
