@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}/${fileBasenameNoExtension}",
-            "args": [ "182.75.45.22","13128", "csf303","csf303","bits-pilani.ac.in"],
+            "args": [ "182.75.45.22","13128", "csf303","csf303","jandarshan.cg.nic.in"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

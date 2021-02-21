@@ -219,24 +219,25 @@ int main(int argc, char **argv)
     char hostname[100];
     sprintf(hostname,"%s",argv[5]);
     
-    SSL_CTX  *ctx = SSL_CTX_new(TLS_client_method());
+    SSL_CTX  *ctx = SSL_CTX_new(TLSv1_2_client_method());
     if(!ctx){
         printf("Error in ctx");
         return 6;
     }
-    BIO* bio = BIO_new_connect("182.75.45.22:13128");
+    
+    BIO* bio = BIO_new_ssl_connect(ctx);
     if(!bio){
         printf("Error in bio");
         return 6;
     }
-    /*
+    
     BIO_get_ssl(bio, &ssl); 
     if(!ssl){
         perror("Error");
         return 1;
     }
     SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY); 
-    */
+    
     if (BIO_do_connect(bio) <= 0) {
         perror("Error in connect: ");
         return 2;
