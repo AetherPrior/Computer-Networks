@@ -83,12 +83,12 @@ int connectHTTP(char **argv, int* sockfd, char* url, char* recvBuff, char *b64, 
 
     sprintf(connectionString,
     "GET http://%s HTTP/1.1\r\n"
-    "Host: http://%s\r\n"
-    "Connection: Close\r\n"
+    "Host: %s\r\n"
+    "Connection: close\r\n"
     "Proxy-Authorization: basic %s\r\n"
     "Proxy-Connection: Keep-Alive\r\n\r\n",
     url,url,b64);
-
+    //puts(connectionString);
     sock_init(sockfd, argv);
     if(send(*sockfd, connectionString, strlen(connectionString), 0) == -1){
         perror("Error in connection: ");
@@ -149,7 +149,7 @@ int connectHTTP(char **argv, int* sockfd, char* url, char* recvBuff, char *b64, 
     //GET
     sprintf(connectionString,
     "GET http://%s%s HTTP/1.1\r\n"
-    "Host: http://%s\r\n"
+    "Host: %s\r\n"
     "Connection: Close\r\n"
     "Proxy-Authorization: basic %s\r\n"
     "Proxy-Connection: Keep-Alive\r\n\r\n",
@@ -223,6 +223,7 @@ int main(int argc, char **argv)
             while(*p !=' ')p++;
             if(*(++p) == '3'){
                 p = strstr(recvBuff,"http");
+                p+=7;
                 char*q = strstr(p, "\r\n");
                 urllen = q-p;
             }
