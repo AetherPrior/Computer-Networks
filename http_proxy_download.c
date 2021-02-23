@@ -82,8 +82,8 @@ int connectHTTP(char **argv, int* sockfd, char* url, char* recvBuff, char *b64, 
     int n;
 
     sprintf(connectionString,
-    "GET %s HTTP/1.1\r\n"
-    "Host: %s\r\n"
+    "GET http://%s HTTP/1.1\r\n"
+    "Host: http://%s\r\n"
     "Connection: Close\r\n"
     "Proxy-Authorization: basic %s\r\n"
     "Proxy-Connection: Keep-Alive\r\n\r\n",
@@ -148,8 +148,8 @@ int connectHTTP(char **argv, int* sockfd, char* url, char* recvBuff, char *b64, 
     sock_init(sockfd, argv);
     //GET
     sprintf(connectionString,
-    "GET %s%s HTTP/1.1\r\n"
-    "Host: %s\r\n"
+    "GET http://%s%s HTTP/1.1\r\n"
+    "Host: http://%s\r\n"
     "Connection: Close\r\n"
     "Proxy-Authorization: basic %s\r\n"
     "Proxy-Connection: Keep-Alive\r\n\r\n",
@@ -203,8 +203,8 @@ int main(int argc, char **argv)
     char host[1000]; //strcpy(host,url)
 
     sprintf(connectionString,
-    "HEAD %s HTTP/1.1\r\n"
-    "Host: %s\r\n"
+    "HEAD http://%s HTTP/1.1\r\n"
+    "Host: http://%s\r\n"
     "Connection: Close\r\n"
     "Proxy-Authorization: basic %s\r\n"
     "Proxy-Connection: Keep-Alive\r\n\r\n",
