@@ -9,19 +9,15 @@
 #include <unistd.h>
 #include <errno.h>
 #include <arpa/inet.h>
-#include <openssl/bio.h> /* BasicInput/Output streams */
-#include <openssl/err.h> /* errors */
-#include <openssl/ssl.h> /* core library */
 
 
 struct sockaddr_in serv_addr;
 int sockfd = 0;
 
-static const unsigned char base64_table[65] =
+const char base64_table[65] =
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-unsigned char * base64_encode(const char *src, char *dest, int len, int *olen)
+char * base64_encode(const char *src, char *dest, int len, int *olen)
 {
-    int rem = len %3;
     int j = 0;
     *olen = len;
     if(len %3){
@@ -76,6 +72,7 @@ int sock_init(int *sockfd, char **argv){
         printf("\n Error: Connect Failed\n");
         return 4;
     }
+    return 0;
 }
 
 
@@ -118,8 +115,8 @@ int connectHTTP(char **argv, int* sockfd, char* url, char* recvBuff, char *b64, 
             flag = 3;
             }
         }
-        else if(strstr(recvBuff,"<!") != NULL){
-            Headerp = strstr(recvBuff,"<!");
+        else if(strstr(recvBuff,"close\r\n") != NULL){
+            Headerp = strstr(recvBuff,"close\r\n")+9;
             fwrite(Headerp,n - (Headerp - recvBuff),1,fp);
             fflush(fp);
             flag = 1;
@@ -182,40 +179,6 @@ int connectHTTP(char **argv, int* sockfd, char* url, char* recvBuff, char *b64, 
     }
     return 0;
 }
-
-int connectHTTPS(char *argv, int *sockfd, char* url, char *b64){
-    char connectionString[1000];
-    int n;
-    char recvBuff[20001];
-    memset(recvBuff,'\0',20001);
-
-    sprintf(connectionString,
-    "CONNECT %s HTTPS/1.1\r\n"
-    "Host: %s\r\n"
-    "Proxy-Authorization: basic %s\r\n"
-    "Proxy-Connection: Keep-Alive\r\n\r\n",
-    url,url,b64);
-    sock_init(sockfd, argv);
-    if(send(*sockfd, connectionString, strlen(connectionString), 0) == -1){
-        perror("Error in connection: ");
-        return 5;
-    }
-    int flag = 0;
-    char *Headerp = NULL;
-    flag = 0;
-
-    FILE *fp = fopen(argv[6],"w+");
-    char resp[20000], *rp = resp;
-    /*
-    while((n = recv(*sockfd, recvBuff, 20000, 0)) > 0)
-    {
-        fwrite(recvBuff, )
-        memcpy(rp, recvBuff, n);
-        rp+=n;
-    }
-*/
-}
-
 
 int main(int argc, char **argv)
 {
