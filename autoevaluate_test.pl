@@ -1,4 +1,4 @@
-#! /usr/bin/perl 
+#! /bin/perl 
 # You may need to modify this ^^ based on your platform and location of the perl binary
 
 use File::Compare;
@@ -7,20 +7,22 @@ my $proxyhost = '182.75.45.22';
 my $proxyport = '13128';
 my $proxyuser = 'csf303';
 my $proxypass = 'csf303';
-my $target = "www.go.com";
+#my $target = 'go.com';
+my $target = 'info.in2p3.fr';
 my $htmltarget = 'index.html';
-my $logotarget = 'logo.jpeg';
+my $logotarget = 'logo.gif';
 my $filename = 'http_proxy_download.c';
 my $binname = 'http_proxy_download.out';
-my $standardfilename = "std_html.html";
-my $standardlogo = "std_logo.jpeg";
-my $std_html = "std_html.html";
+my $std_html = 'std_html.html';
+my $std_logo = 'std_logo.gif';
+
 
 my $file;
 my $email, $name;
 open($file, "<", $filename) or print $!." "."$filename";
 
 @lines = <$file>;
+
 $lines[0] =~ m/\/\*\s+(.*?)\s+(.*)\s+\*\//;
 $email = $1;
 $name = $2;

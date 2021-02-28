@@ -1,4 +1,6 @@
-/* 2018A7PS0172H Abhinav_Sukumar_Rao */
+/* f20180172@hyderabad.bits-pilani.ac.in Abhinav_Sukumar_Rao */
+/* This program solves assignment 1 of computer networks */
+
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -14,42 +16,43 @@
 struct sockaddr_in serv_addr;
 int sockfd = 0;
 
-const char base64_table[65] =
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-char * base64_encode(const char *src, char *dest, int len, int *olen)
+
+char * encode_base64(const char *username, char *userpass, char *dest, int *output_len)
 {
-    int j = 0;
-    *olen = len;
-    if(len %3){
-        *olen += 3 - (len%3);
-    }
-    *olen = 4*((*olen)/3);
 
-    for(int i = 0; i < len; i+=3){
-        int enc = src[i]; //first 8 bytes
-        if(i+1 < len){
-        enc = ((enc << 8) | (src[i+1]));
-        }else{enc = (enc << 8);}
-        if(i+2 < len){
-        enc = ((enc << 8) | (src[i+2]));
-        }else{enc = (enc << 8);}
-        dest[j] = base64_table[((enc >> (24-6)) & 0x3f)];
-        dest[j+1] = base64_table[((enc >> (24-12)) & 0x3f)];
-        dest[j+2] = (i+1 < len)? base64_table[((enc >> (24-18)) & 0x3f)]: '=';
-        dest[j+3] = (i+2 < len)? base64_table[((enc & 0x3f))] : '=';
-        j+=4;
-    }
-    dest[j]= '\0';
-    return dest;
-}
-
-char *b64encode(char *username, char*userpass, char *dest, int *olen){
     char plainstring[100];
     strcpy(plainstring,username);
     strcat(plainstring,":");
     strcat(plainstring,userpass);
-    return base64_encode(plainstring,dest,strlen(plainstring),olen);
 
+    int len = strlen(plainstring);
+
+    char base64_lookup_table[65] =
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    
+    *output_len = len;
+    if(len %3){
+        *output_len += 3 - (len%3);
+    }
+    *output_len = 4*((*output_len)/3);
+
+    int j = 0;
+    for(int i = 0; i < len; i+=3){
+        int enc = plainstring[i]; //first 8 bytes
+        if(i+1 < len){
+        enc = ((enc << 8) | (plainstring[i+1]));
+        }else{enc = (enc << 8);}
+        if(i+2 < len){
+        enc = ((enc << 8) | (plainstring[i+2]));
+        }else{enc = (enc << 8);}
+        dest[j] = base64_lookup_table[((enc >> (24-6)) & 0b00111111)];
+        dest[j+1] = base64_lookup_table[((enc >> (24-12)) & 0b00111111)];
+        dest[j+2] = (i+1 < len)? base64_lookup_table[((enc >> (24-18)) & 0b00111111)]: '=';
+        dest[j+3] = (i+2 < len)? base64_lookup_table[((enc & 0b00111111))] : '=';
+        j+=4;
+    }
+    dest[j]= '\0';
+    return dest;
 }
 
 
@@ -193,7 +196,7 @@ int main(int argc, char **argv)
     }
     int olen,imageFlag;
     imageFlag = (strstr(argv[1],"info.in2p3.fr") != NULL);
-    b64encode(argv[4],argv[5], base64encoded, &olen);
+    encode_base64(argv[4],argv[5], base64encoded, &olen);
 
     memset(recvBuff, '0', sizeof(recvBuff));
     sock_init(&sockfd, argv);
@@ -237,7 +240,11 @@ int main(int argc, char **argv)
     host[urllen] = '\0';
     }
     else{
-        strcpy(host,argv[1]);
+        char *argp = argv[1];
+        if(strstr(argv[1],"http://")){
+            argp+=7;
+        }
+        strcpy(host,argp);
     }
     if(connectHTTP(argv,&sockfd,host,recvBuff,base64encoded,imageFlag))
     {
